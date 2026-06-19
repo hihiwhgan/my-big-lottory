@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>大樂透 智慧分析 - 20期深度回測系統</title>
+    <style>
+        /* 基礎版面配置 */
+        body { font-family: "PingFang TC", "Microsoft JhengHei", sans-serif; background: #f4f4f2; padding: 20px; color: #444; }
+        .container { max-width: 1600px; margin: 0 auto; background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 40px rgba(0,0,0,0.06); margin-bottom: 30px; }
+        h1 { text-align: center; color: #555; margin-bottom: 20px; }
+        
+        /* 色塊說明圖例 */
+        .legend-section { background: #fff; border: 1px solid #eee; padding: 15px; border-radius: 12px; margin-bottom: 25px; display: flex; flex-wrap: wrap; gap: 20px; justify-content: center; font-size: 0.85em; }
+        .legend-group { display: flex; align-items: center; gap: 8px; border-right: 1px solid #eee; padding-right: 15px; }
+        .legend-group:last-child { border-right: none; }
+        .legend-box { width: 14px; height: 14px; border-radius: 3px; display: inline-block; }
+        .label-text { font-weight: bold; color: #666; }
+
+        /* 莫蘭迪配色系統 (歷史間隔) */
+        .bg-blue { background-color: #8E9AAF; color: white !important; }
+        .bg-yellow { background-color: #D4A373; color: white !important; }
+        .bg-green { background-color: #A3B18A; color: white !important; }
+        .bg-purple { background-color: #957DAD; color: white !important; }
+
+        /* 標示顏色：回歸一般處理 */
+        .hit-num { color: #0000FF !important; text-decoration: underline; font-weight: 900; } 
+        .hit-special { color: #cc00cc !important; text-decoration: underline; font-weight: 900; } /* 命中特別號 */
+
+        /* 重複號碼綠色系標記 (依次數加深) */
+        .dup-2 { background-color: #f0fdf4; border-radius: 4px; padding: 0 2px; }
+        .dup-3 { background-color: #dcfce7; border-radius: 4px; padding: 0 2px; }
+        .dup-4 { background-color: #bbf7d0; border-radius: 4px; padding: 0 2px; }
+        .dup-5 { background-color: #86efac; border-radius: 4px; padding: 0 2px; }
+        .dup-6 { background-color: #4ade80; border-radius: 4px; padding: 0 2px; }
+
+        /* 表格通用樣式 */
+        h2 { border-left: 6px solid #8E9AAF; padding-left: 12px; color: #555; font-size: 1.15em; margin-top: 40px; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.82em; table-layout: fixed; }
+        th { background: #f8fafc; color: #64748b; padding: 10px; border: 1px solid #e2e8f0; }
+        td { padding: 10px 2px; border: 1px solid #f1f5f9; text-align: center; color: #000; font-weight: bold; }
+        
+        .ball { display: inline-block; width: 22px; height: 22px; line-height: 22px; background: #b8978e; color: white; border-radius: 50%; font-weight: bold; font-size: 0.8em; }
+        .s-ball { background: #cc00cc !important; } /* 特別號球 */
+        .diff-num { display: inline-block; width: 20px; border-radius: 3px; font-weight: bold; font-family: monospace; }
+
+        .predict-row { background-color: #fffbeb !important; }
+        .diff-col { background-color: #fafafa; border-left: 1px solid #eee !important; }
+
+        /* 合併回測表專屬 */
+        #table-merged th { background: #1e293b; color: #fff; }
+        #table-merged td { border: 1px solid #e2e8f0; font-size: 0.95em; }
+        .period-cell { background: #f8fafc; font-weight: bold; font-size: 0.9em; padding: 10px 5px !important; }
+        
+        .hit-count-label { font-size: 0.8em; font-weight: normal; color: #888; margin-left: 4px; }
+        
+        .stat-row { background-color: #334155 !important; color: #cbd5e1 !important; font-weight: bold; }
+        .stat-row td { border: 1px solid #475569 !important; padding: 15px 5px; }
+        .stat-title { color: #cbd5e1; font-weight: normal; font-size: 0.9em; }
+        .stat-rate { color: #94a3b8; font-weight: normal; font-size: 0.95em; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>大樂透 智慧分析系統</h1>
+
+        <div class="legend-section">
+            <div class="legend-group">
+                <span class="label-text">歷史間隔:</span>
+                <span class="legend-box bg-blue"></span> 連莊 <span class="legend-box bg-yellow"></span> 隔1 <span class="legend-box bg-green"></span> 隔2 <span class="legend-box bg-purple"></span> 隔3
+            </div>
+            <div class="legend-group">
+                <span class="label-text">號碼標示:</span>
+                <span style="color:#0000FF; text-decoration:underline;">藍(中一般號)</span>
+                <span style="color:#cc00cc; text-decoration:underline;">紫(中特別號)</span>
+                <span style="background-color:#dcfce7; padding:0 4px; border-radius:4px;">綠色(跨位置重複預測)</span>
+            </div>
+        </div>
+
+        <h2>表格一：基礎差值分析 (M1 模式)</h2>
+        <table id="table1">
+            <thead>
+                <tr>
+                    <th style="width:75px">日期</th>
+                    <th style="width:200px">開獎號碼 (特別號)</th>
+                    <th>減前01</th><th>減前02</th><th>減前03</th><th>減前04</th><th>減前05</th><th>減前06</th>
+                </tr>
+            </thead>
+            <tbody id="tbody1"></tbody>
+        </table>
+
+        <h2>表格二：累加尾數分析 (M2 模式)</h2>
+        <table id="table2">
+            <thead>
+                <tr>
+                    <th style="width:75px">日期</th>
+                    <th style="width:200px">開獎號碼 (特別號)</th>
+                    <th>減(尾01)</th><th>減(尾1+2)</th><th>減(尾1~3)</th><th>減(尾1~4)</th><th>減(尾1~5)</th><th>減(尾1~6)</th>
+                </tr>
+            </thead>
+            <tbody id="tbody2"></tbody>
+        </table>
+
+        <h2>📊 二十期雙模式合併回測對照表</h2>
+        <table id="table-merged">
+            <thead>
+                <tr>
+                    <th style="width: 100px;">期別</th>
+                    <th style="width: 200px;">當期獎號</th>
+                    <th>位置 01 預測</th><th>位置 02 預測</th><th>位置 03 預測</th><th>位置 04 預測</th><th>位置 05 預測</th><th>位置 06 預測</th>
+                </tr>
+            </thead>
+            <tbody id="tbody-merged"></tbody>
+            <tfoot id="tfoot-merged"></tfoot>
+        </table>
+    </div>
+
+    <script>
+        let mode1Backtests = {}; 
+        let mode2Backtests = {}; 
+        const pad = (n) => n.toString().padStart(2, '0');
+
+        async function loadData() {
+            try {
+                const response = await fetch('./data.json?t=' + new Date().getTime()); 
+                const data = await response.json();
+                const matrix1 = calculateMatrix(data, 1);
+                const matrix2 = calculateMatrix(data, 2);
+                renderMainTable(data, matrix1, 1);
+                renderMainTable(data, matrix2, 2);
+                renderMergedTable(data);
+            } catch (err) { console.error("數據載入失敗:", err); }
+        }
+
+        // 大樂透矩陣運算 (6 欄)
+        function calculateMatrix(data, type) {
+            const matrix = [];
+            for (let i = 0; i < data.length; i++) {
+                let d = [];
+                if (i > 0) {
+                    const prev = data[i-1].nums.map(Number);
+                    const curr = data[i].nums.map(Number);
+                    if (type === 1) { 
+                        for(let c=0; c<6; c++) d.push(curr.map(n => Math.abs(n - prev[c]))); 
+                    } else { 
+                        const t = prev.map(n => n % 10); 
+                        for(let c=0; c<6; c++) { 
+                            let s=0; for(let k=0; k<=c; k++) s+=t[k]; 
+                            d.push(curr.map(n => Math.abs(n - s))); 
+                        } 
+                    }
+                } else { for(let c=0; c<6; c++) d.push(null); }
+                matrix.push(d);
+            }
+            return matrix;
+        }
+
+        function renderMainTable(data, matrix, type) {
+            const tbody = document.getElementById('tbody' + type);
+            tbody.innerHTML = '';
+            data.forEach((item, i) => {
+                const row = document.createElement('tr');
+                const balls = item.nums.map(n => `<span class="ball">${pad(n)}</span>`).join(' ');
+                const sBall = item.s_num ? `<span class="ball s-ball">${pad(item.s_num)}</span>` : '';
+                let html = `<td><strong>${item.period}</strong></td><td>${balls} + ${sBall}</td>`;
+                
+                for (let c=0; c<6; c++) {
+                    if (i === 0 || !matrix[i][c]) { html += `<td>-</td>`; continue; }
+                    let cells = matrix[i][c].map(v => {
+                        let cls = '';
+                        for (let j=0; j<=3; j++) { if (i-(j+1)>=0 && matrix[i-(j+1)][c] && matrix[i-(j+1)][c].includes(v)) { cls = ['bg-blue', 'bg-yellow', 'bg-green', 'bg-purple'][j]; break; } }
+                        return `<span class="diff-num ${cls}">${pad(v)}</span>`;
+                    }).join('');
+                    html += `<td class="diff-col">${cells}</td>`;
+                }
+                row.innerHTML = html; tbody.appendChild(row);
+            });
+
+            const total = data.length;
+            for (let offset = 20; offset >= 0; offset--) {
+                const targetIdx = total - offset;
+                if (targetIdx >= total && offset !== 0) continue;
+                const isFuture = (offset === 0);
+                let periodKey = isFuture ? "NEXT" : data[targetIdx].period;
+                let predsForThisPeriod = [];
+                
+                for (let c=0; c<6; c++) {
+                    let start = Math.max(1, (isFuture ? total : targetIdx) - 20);
+                    let end = isFuture ? total : targetIdx;
+                    let counts = {};
+                    for (let i = start; i < end; i++) {
+                        matrix[i][c].forEach(v => { if (matrix.slice(start, i).some(m => m[c] && m[c].includes(v))) counts[v] = (counts[v] || 0) + 1; });
+                    }
+                    let hot = Object.keys(counts).sort((a,b)=>counts[b]-counts[a]).slice(0, 2).map(Number);
+                    let base = 0; const refIdx = (isFuture ? total : targetIdx) - 1;
+                    if (type === 1) base = data[refIdx].nums.map(Number)[c];
+                    else { const t = data[refIdx].nums.map(n => Number(n)%10); for(let k=0; k<=c; k++) base += t[k]; }
+                    let p = []; 
+                    // 大樂透邊界過濾 (1~49)
+                    hot.forEach(d => { [base+d, Math.abs(base-d)].forEach(n => { if(n>=1 && n<=49) p.push(n); })});
+                    predsForThisPeriod.push([...new Set(p)]);
+                }
+                if (type === 1) mode1Backtests[periodKey] = predsForThisPeriod;
+                else mode2Backtests[periodKey] = predsForThisPeriod;
+            }
+        }
+
+        function renderMergedTable(data) {
+            const tbody = document.getElementById('tbody-merged');
+            const tfoot = document.getElementById('tfoot-merged');
+            tbody.innerHTML = ''; tfoot.innerHTML = '';
+            const total = data.length;
+            let colHitStats = [0, 0, 0, 0, 0, 0]; 
+            let validBacktestCount = 0;
+
+            for (let offset = 20; offset >= 0; offset--) {
+                const targetIdx = total - offset;
+                const isFuture = (offset === 0);
+                if (!isFuture && targetIdx >= total) continue;
+                if (!isFuture) validBacktestCount++;
+
+                const period = isFuture ? "NEXT" : data[targetIdx].period;
+                const actual = isFuture ? [] : data[targetIdx].nums.map(Number);
+                const actualSpecial = isFuture ? null : (data[targetIdx].s_num ? Number(data[targetIdx].s_num) : null);
+                
+                const p1Row = mode1Backtests[period];
+                const p2Row = mode2Backtests[period];
+
+                // 統計期內跨位置重複頻率 (01~06 位置)
+                let allNumsInRow = [];
+                for (let c = 0; c < 6; c++) {
+                    allNumsInRow.push(...new Set([...p1Row[c], ...p2Row[c]]));
+                }
+                let counts = {};
+                allNumsInRow.forEach(n => counts[n] = (counts[n] || 0) + 1);
+
+                const row = document.createElement('tr');
+                if (isFuture) row.className = 'predict-row';
+
+                let html = `<td class="period-cell">${period}</td>`;
+                const ballsHtml = isFuture ? "待開獎" : data[targetIdx].nums.map(n => `<span class="ball">${pad(n)}</span>`).join(' ');
+                const sBallHtml = (!isFuture && data[targetIdx].s_num) ? `+ <span class="ball s-ball">${pad(data[targetIdx].s_num)}</span>` : '';
+                html += `<td>${ballsHtml} ${sBallHtml}</td>`;
+                
+                for (let c = 0; c < 6; c++) {
+                    const p1 = p1Row[c]; const p2 = p2Row[c];
+                    const combined = [...new Set([...p1, ...p2])].sort((a, b) => a - b);
+                    
+                    const hitNums = combined.filter(n => !isFuture && actual.includes(n));
+                    if (hitNums.length > 0) colHitStats[c]++;
+
+                    const cellHtml = combined.map(num => {
+                        const isHit = !isFuture && actual.includes(num);
+                        const isSpecialHit = !isFuture && actualSpecial === num;
+                        const dupCount = counts[num] || 1;
+                        
+                        let classes = [];
+                        if (isHit) classes.push('hit-num'); // 中一般號藍字
+                        if (isSpecialHit) classes.push('hit-special'); // 中特別號紫字
+                        if (dupCount >= 2) classes.push('dup-' + Math.min(dupCount, 6)); // 重複綠背景
+                        
+                        return `<span class="${classes.join(' ')}">${pad(num)}</span>`;
+                    }).join(', ');
+
+                    const label = isFuture 
+                        ? `<span class="hit-count-label">(${combined.length})</span>`
+                        : `<span class="hit-count-label">(${hitNums.length}/${combined.length})</span>`;
+
+                    html += `<td>${cellHtml || '---'}${label}</td>`;
+                }
+                row.innerHTML = html; tbody.appendChild(row);
+            }
+
+            const statRow = document.createElement('tr');
+            statRow.className = 'stat-row';
+            let statHtml = `<td colspan="2"><span class="stat-title">📈 位置累計命中率 (近 ${validBacktestCount} 期)</span></td>`;
+            colHitStats.forEach(hits => {
+                const rate = ((hits / validBacktestCount) * 100).toFixed(0);
+                statHtml += `<td><span class="stat-rate">命中: ${hits} 期<br>(${rate}%)</span></td>`;
+            });
+            statRow.innerHTML = statHtml;
+            tfoot.appendChild(statRow);
+        }
+        loadData();
+    </script>
+</body>
+</html>
