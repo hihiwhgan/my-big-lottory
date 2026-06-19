@@ -29,42 +29,50 @@ def fetch_and_save():
         rows = soup.find_all('tr')
         
         for row in rows:
-            tds = row.find_all('td')
-            if len(tds) >= 2:
-                col1 = tds[0].get_text(strip=True)
-                col2 = tds[1].get_text(strip=True)
+            # 尋找具備特定 class 的網頁欄位
+            td_date = row.find('td', class_='date-cell')
+            td_nums = row.find('td', class_='number-cell')
+            td_bonus = row.find('td', class_='bonus-cell')
+            
+            # 確保三個核心欄位同時存在
+            if td_date and td_nums and td_bonus:
+                raw_date = td_date.get_text(strip=True)
+                raw_nums = td_nums.get_text(strip=True)
+                raw_bonus = td_bonus.get_text(strip=True)
                 
-                if "," in col2:
-                    # 提取期別 (MM/DD)
-                    date_match = re.search(r'(\d{2}/\d{2})', col1)
-                    display_date = date_match.group(1) if date_match else col1
-                    
-                    # 更安全的數字提取：直接用正則抓出所有連續數字
-                    nums = re.findall(r'\d+', col2)
-                    
-                    # 補零處理 (例如 "5" 轉 "05")
-                    nums = [n.padStart(2, '0') if len(n) == 1 else n for n in nums]
-                    
-                    # 大樂透必須要有 6 個一般號 + 1 個特別號 = 7 個號碼
-                    if len(nums) == 7 and display_date not in existing_periods:
-                        new_entries.append({
-                            "period": display_date, 
-                            "nums": nums[:6],
-                            "s_num": nums[6]
-                        })
+                # 1. 提取期別 (抓取第一個出現的 MM/DD 格式)
+                date_match = re.search(r'(\d{2}/\d{2})', raw_date)
+                display_date = date_match.group(1) if date_match else raw_date
+                
+                if display_date in existing_periods:
+                    continue
+                
+                # 2. 解析一般號 (用正則抓出所有數字)
+                nums = re.findall(r'\d+', raw_nums)
+                nums = [n.zfill(2) for n in nums]  # 補零處理
+                
+                # 3. 解析特別號
+                bonus_match = re.search(r'\d+', raw_bonus)
+                special_num = bonus_match.group(0).zfill(2) if bonus_match else None
+                
+                # 驗證：大樂透必須要有 6 個一般號與 1 個特別號
+                if len(nums) == 6 and special_num:
+                    new_entries.append({
+                        "period": display_date, 
+                        "nums": nums,
+                        "s_num": special_num
+                    })
         
-        # 如果是新專案且完全沒抓到資料，拋出警告
         if not new_entries and not final_data:
-            print("錯誤：未能從網頁解析出任何大樂透資料，請檢查網頁欄位結構。")
+            print("錯誤：未能從網頁解析出任何大樂透資料。請檢查 Class 名稱是否正確。")
             return
         elif not new_entries:
             print("目前沒有新的大樂透開獎資料需要更新。")
             return
 
-        # 3. 合併並排序 (由舊到新)
+        # 合併並排序 (由舊到新)
         combined_data = final_data + new_entries[::-1]
         
-        # 4. 儲存為 JSON 檔案
         with open('data.json', 'w', encoding='utf-8') as f:
             json.dump(combined_data, f, ensure_ascii=False, indent=4)
             
