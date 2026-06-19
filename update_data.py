@@ -74,5 +74,5 @@ def fetch_and_save():
     except Exception as e:
         print(f"更新失敗: {e}")
 
- if __name__ == "__main__":
+if __name__ == "__main__":
     fetch_and_save()
